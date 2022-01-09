@@ -1,2 +1,6 @@
 .env
 service_account-credentials.json
+uwsgi.ini
+*pid
+*sock
+
