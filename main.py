@@ -17,7 +17,7 @@ SCOPES = [
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/drive.file',
 ]
-SERVICE_ACCOUNT_FILE = 'service_account-credentials.json'
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_JSON', default='service_account-credentials.json')
 ROOT_FOLDER = os.getenv('ROOT_FOLDER', default='')
 
 service_v2: Resource
@@ -30,12 +30,12 @@ def init_services():
     creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     creds.refresh(Request())
     if not creds or not creds.valid:
-      print("error with credentials")
+      logger.error("error with credentials")
       exit(1)
     service_v2 = build('drive', 'v2', credentials=creds)
     service_v3 = build('drive', 'v3', credentials=creds)
   except Exception as err:
-    print(err)
+    logger.error(err)
     exit(1)
 
 
