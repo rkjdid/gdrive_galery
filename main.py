@@ -3,6 +3,7 @@ import os
 import time
 
 from loguru import logger
+from dotenv import load_dotenv
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -17,6 +18,7 @@ SCOPES = [
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/drive.file',
 ]
+load_dotenv()
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_JSON', default='service_account-credentials.json')
 ROOT_FOLDER = os.getenv('ROOT_FOLDER', default='')
 
