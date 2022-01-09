@@ -1,5 +1,6 @@
 import io
 import os
+import time
 
 from loguru import logger
 
@@ -46,24 +47,19 @@ def listChildren(folder=ROOT_FOLDER):
     params = {}
     if pageToken:
       params['pageToken'] = pageToken
-    results = service_v2.children().list(folderId=folder, **params).execute()
+    params['fields'] = "nextPageToken, files(id, name)"
+    results = service_v3.files().list(q="'%s' in parents" % folder, **params).execute()
     pageToken = results.get('nextPageToken')
-    items = results.get('items', [])
+    items = results.get('files', [])
     for item in items:
       fid = item['id']
-      obj = {'id': fid}
-      file = service_v2.files().get(fileId=fid).execute()
-      for k, v in file.items():
-        if k in ['webContentLink', 'thumbnailLink', 'title', 'description', 'fileSize', 'fileExtension', 'mimeType']:
-          obj[k] = v
-          # print(k, v)
-        # else:
-        #   obj[k] = v
-      result.append(obj)
-      # print(u'{0}'.format(item['id']))
+      f = service_v3.files().get(fileId=fid, fields="webContentLink, thumbnailLink, description, size, fileExtension, mimeType").execute()
+      f['fetchEndpoint'] = '/fetch/%s' % fid
+      f['size'] = "%.1f kB" % (float(f.get('size', 0.)) / 1024.)
+      # logger.info(f)
+      result.append(f)
     if not pageToken:
       break
-  # print("returned", result)
   return result
 
 
@@ -81,17 +77,18 @@ def route_list():
     result = listChildren(folderId)
     return jsonify(result)
   except HttpError as err:
-    return err.status_code, err.reason
+    return abort(err.status_code, err.reason)
   except Exception as err:
-    return 500, err
+    logger.exception(err)
+    return abort(500, err)
 
 @app.route('/fetch/<string:fileId>')
 def fetch(fileId):
   try:
-    mimeType = service_v3.files().get(fileId=fileId, fields="mimeType, ").execute()['mimeType']
+    meta = service_v3.files().get(fileId=fileId, fields="mimeType, size").execute()
+    t0 = time.time()
+    logger.info("streaming %s: %s (%f kB)" % (fileId, meta.get('mimeType'), float(meta.get('size', 0.)) / 1024.))
     media = service_v3.files().get_media(fileId=fileId)
-    logger.info("streaming %s: %s (%d kB)" % fileId, mimeType)
-
     def stream():
       done = False
       buffer = io.BytesIO()
@@ -101,12 +98,12 @@ def fetch(fileId):
         _, done = downloader.next_chunk()
         buffer.seek(progress)
         yield buffer.read(downloader._progress - progress)
-
-    return Response(stream(), mimetype=mimeType)
+      logger.info("done in %.1fs" % (time.time() - t0))
+    return Response(stream(), mimetype=meta.get('mimeType'))
   except HttpError as err:
     abort(err.status_code, err.reason)
   except Exception as err:
-    logger.error(err)
+    logger.exception(err)
     abort(500, err)
 
 if __name__ == '__main__':
