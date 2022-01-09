@@ -68,11 +68,10 @@ from flask import Flask, request, jsonify, Response, abort
 init_services()
 app = Flask(__name__)
 
-@app.route('/list')
-def route_list():
-  folderId = request.args.get('folderId')
-  if not folderId:
-    folderId = ROOT_FOLDER
+@app.route('/list', defaults={'folderId': ROOT_FOLDER})
+@app.route('/list/', defaults={'folderId': ROOT_FOLDER})
+@app.route('/list/<string:folderId>')
+def route_list(folderId):
   try:
     result = listChildren(folderId)
     return jsonify(result)
