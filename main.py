@@ -55,7 +55,7 @@ def listChildren(folder=ROOT_FOLDER):
     items = results.get('files', [])
     for item in items:
       fid = item['id']
-      f = service_v3.files().get(fileId=fid, fields="webContentLink, thumbnailLink, description, size, fileExtension, mimeType").execute()
+      f = service_v3.files().get(fileId=fid, fields="id, webContentLink, thumbnailLink, description, size, fileExtension, mimeType").execute()
       f['fetchEndpoint'] = '/fetch/%s' % fid
       f['size'] = "%.1f kB" % (float(f.get('size', 0.)) / 1024.)
       # logger.info(f)
