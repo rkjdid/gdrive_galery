@@ -71,6 +71,7 @@ from flask_cors import CORS
 
 init_services()
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/list', defaults={'folderId': ROOT_FOLDER})
 @app.route('/list/', defaults={'folderId': ROOT_FOLDER})
