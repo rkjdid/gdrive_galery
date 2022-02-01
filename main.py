@@ -66,6 +66,8 @@ def listChildren(folder=ROOT_FOLDER):
 
 
 from flask import Flask, request, jsonify, Response, abort
+from flask_cors import CORS
+
 
 init_services()
 app = Flask(__name__)
