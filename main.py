@@ -1,6 +1,10 @@
 import io
 import os
 import time
+import urllib.parse
+
+import httplib2
+import requests
 
 from loguru import logger
 from dotenv import load_dotenv
@@ -40,6 +44,20 @@ def init_services():
     logger.error(err)
     exit(1)
 
+def _stream(media):
+  t0 = time.time()
+  done = False
+  buffer = io.BytesIO()
+  downloader = MediaIoBaseDownload(buffer, media)
+  progress = 0
+  while done is False:
+    _, done = downloader.next_chunk()
+    buffer.seek(progress)
+    yield buffer.read(downloader._progress - progress)
+  logger.info("done in %.1fs" % (time.time() - t0))
+
+def _streamFile():
+  pass
 
 def listChildren(folder=ROOT_FOLDER):
   global service_v2
@@ -90,20 +108,25 @@ def route_list(folderId):
 def fetch(fileId):
   try:
     meta = service_v3.files().get(fileId=fileId, fields="mimeType, size").execute()
-    t0 = time.time()
     logger.info("streaming %s: %s (%f kB)" % (fileId, meta.get('mimeType'), float(meta.get('size', 0.)) / 1024.))
     media = service_v3.files().get_media(fileId=fileId)
-    def stream():
-      done = False
-      buffer = io.BytesIO()
-      downloader = MediaIoBaseDownload(buffer, media)
-      progress = 0
-      while done is False:
-        _, done = downloader.next_chunk()
-        buffer.seek(progress)
-        yield buffer.read(downloader._progress - progress)
-      logger.info("done in %.1fs" % (time.time() - t0))
-    return Response(stream(), mimetype=meta.get('mimeType'))
+    return Response(_stream(media), mimetype=meta.get('mimeType'))
+  except HttpError as err:
+    abort(err.status_code, err.reason)
+  except Exception as err:
+    logger.exception(err)
+    abort(500, err)
+
+@app.route('/tunnel')
+def tunnel():
+  try:
+    headers = {}
+    creds.apply(headers)
+    url = urllib.parse.unquote(request.args.get("url"))
+    response = requests.get(url, headers=headers)
+    if not response.ok:
+      abort(response.status_code, response.reason)
+    return Response(response.content, mimetype=response.headers.get(""))
   except HttpError as err:
     abort(err.status_code, err.reason)
   except Exception as err:
