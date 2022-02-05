@@ -76,6 +76,7 @@ def listChildren(folder=ROOT_FOLDER):
       f = service_v3.files().get(fileId=fid, fields="id, webContentLink, thumbnailLink, description, size, fileExtension, mimeType").execute()
       f['fetchEndpoint'] = '/fetch/%s' % fid
       f['size'] = "%.1f kB" % (float(f.get('size', 0.)) / 1024.)
+      f['thumbnailEndpoint'] = '/tunnel?url=%s' % urllib.parse.quote(f['thumbnailLink'])
       # logger.info(f)
       result.append(f)
     if not pageToken:
@@ -126,7 +127,7 @@ def tunnel():
     response = requests.get(url, headers=headers)
     if not response.ok:
       abort(response.status_code, response.reason)
-    return Response(response.content, mimetype=response.headers.get(""))
+    return Response(response.content, mimetype=response.headers.get("Content-Type"))
   except HttpError as err:
     abort(err.status_code, err.reason)
   except Exception as err:
