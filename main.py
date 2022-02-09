@@ -1,13 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import io
 import os
 import time
 import urllib.parse
-
-import httplib2
 import requests
 
 from loguru import logger
-from dotenv import load_dotenv
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -22,9 +22,9 @@ SCOPES = [
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/drive.file',
 ]
-load_dotenv()
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_JSON', default='service_account-credentials.json')
 ROOT_FOLDER = os.getenv('ROOT_FOLDER', default='')
+SIZE_LIMIT = float(os.getenv('SIZE_LIMIT_KB', default=1024))
 
 service_v2: Resource
 service_v3: Resource
@@ -61,26 +61,38 @@ def _streamFile():
 
 def listChildren(folder=ROOT_FOLDER):
   global service_v2
+  t0 = time.time()
   result = []
   pageToken = None
+  sizeSkip = []
   while True:
     params = {}
     if pageToken:
       params['pageToken'] = pageToken
-    params['fields'] = "nextPageToken, files(id, name)"
+    params['fields'] = "nextPageToken, files(id, name, webContentLink, hasThumbnail, thumbnailLink, iconLink, description, size, fileExtension, mimeType)"
     results = service_v3.files().list(q="'%s' in parents" % folder, **params).execute()
     pageToken = results.get('nextPageToken')
     items = results.get('files', [])
     for item in items:
       fid = item['id']
-      f = service_v3.files().get(fileId=fid, fields="id, webContentLink, thumbnailLink, description, size, fileExtension, mimeType").execute()
+      f = item
       f['fetchEndpoint'] = '/fetch/%s' % fid
-      f['size'] = "%.1f kB" % (float(f.get('size', 0.)) / 1024.)
-      f['thumbnailEndpoint'] = '/tunnel?url=%s' % urllib.parse.quote(f['thumbnailLink'])
-      # logger.info(f)
+      f['sizeKb'] = float(f.get('size', 0.)) / 1024.
+      if not f['mimeType'].startswith("image/"):
+        continue
+      if f['sizeKb'] > SIZE_LIMIT:
+        sizeSkip.append(f)
+        continue
+      tbField = 'thumbnailLink'
+      if not f.get('hasThumbnail'):
+        tbField = 'iconLink'
+      f['thumbnailEndpoint'] = '/tunnel?url=%s' % urllib.parse.quote(f[tbField])
+      logger.debug(f)
       result.append(f)
     if not pageToken:
       break
+  logger.info("/list/%s in %.1fs, %d items, skipped %d (size limit: %.0f kb)" % (
+    folder, time.time() - t0, len(result), len(sizeSkip), SIZE_LIMIT))
   return result
 
 
