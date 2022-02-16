@@ -6,6 +6,7 @@ import os
 import time
 import urllib.parse
 import requests
+import base64
 
 from loguru import logger
 
@@ -59,18 +60,26 @@ def _stream(media):
 def _streamFile():
   pass
 
-def listChildren(folder=ROOT_FOLDER):
+def _download(url):
+  headers = {}
+  creds.apply(headers)
+  return requests.get(url, headers=headers)
+
+def listChildren(folder=ROOT_FOLDER, paginated=False, withThumbnail=False, pageSize=10, pageToken=None):
   global service_v2
   t0 = time.time()
   result = []
-  pageToken = None
   sizeSkip = []
+  paginated = paginated in ['true']
+  withThumbnail = withThumbnail in ['true']
+  pageSize = int(pageSize)
   while True:
-    params = {}
+    params = {'pageSize':pageSize}
     if pageToken:
       params['pageToken'] = pageToken
+    params['q'] = "mimeType contains 'image/' and '%s' in parents" % folder
     params['fields'] = "nextPageToken, files(id, name, webContentLink, hasThumbnail, thumbnailLink, iconLink, description, size, fileExtension, mimeType)"
-    results = service_v3.files().list(q="'%s' in parents" % folder, **params).execute()
+    results = service_v3.files().list(**params).execute()
     pageToken = results.get('nextPageToken')
     items = results.get('files', [])
     for item in items:
@@ -86,14 +95,19 @@ def listChildren(folder=ROOT_FOLDER):
       tbField = 'thumbnailLink'
       if not f.get('hasThumbnail'):
         tbField = 'iconLink'
+      if withThumbnail:
+        tbResponse = _download(f[tbField])
+        if tbResponse.ok:
+          f['thumbnail'] = base64.b64encode(tbResponse.content).decode('utf-8')
+          f['thumbnailMimeType'] = tbResponse.headers['Content-Type']
       f['thumbnailEndpoint'] = '/tunnel?url=%s' % urllib.parse.quote(f[tbField])
       logger.debug(f)
       result.append(f)
-    if not pageToken:
+    if not pageToken or (paginated and pageSize <= len(result)):
       break
   logger.info("/list/%s in %.1fs, %d items, skipped %d (size limit: %.0f kb)" % (
     folder, time.time() - t0, len(result), len(sizeSkip), SIZE_LIMIT))
-  return result
+  return {'pageToken': pageToken, 'files': result}
 
 
 from flask import Flask, request, jsonify, Response, abort
@@ -109,7 +123,7 @@ CORS(app)
 @app.route('/list/<string:folderId>')
 def route_list(folderId):
   try:
-    result = listChildren(folderId)
+    result = listChildren(folderId, **request.args)
     return jsonify(result)
   except HttpError as err:
     return abort(err.status_code, err.reason)
@@ -133,10 +147,8 @@ def fetch(fileId):
 @app.route('/tunnel')
 def tunnel():
   try:
-    headers = {}
-    creds.apply(headers)
     url = urllib.parse.unquote(request.args.get("url"))
-    response = requests.get(url, headers=headers)
+    response = _download(url)
     if not response.ok:
       abort(response.status_code, response.reason)
     return Response(response.content, mimetype=response.headers.get("Content-Type"))
