@@ -25,7 +25,7 @@ SCOPES = [
 ]
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_JSON', default='service_account-credentials.json')
 ROOT_FOLDER = os.getenv('ROOT_FOLDER', default='')
-SIZE_LIMIT = float(os.getenv('SIZE_LIMIT_KB', default=4096))
+SIZE_LIMIT = float(os.getenv('SIZE_LIMIT', default=4096))
 
 service_v2: Resource
 service_v3: Resource
