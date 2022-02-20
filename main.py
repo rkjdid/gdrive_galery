@@ -78,6 +78,8 @@ def listChildren(folder=ROOT_FOLDER, paginated=False, withThumbnail=False, pageS
     if pageToken:
       params['pageToken'] = pageToken
     params['q'] = "mimeType contains 'image/' and '%s' in parents" % folder
+    if not params.get("orderBy"):
+      params['orderBy'] = "name_natural"
     params['fields'] = "nextPageToken, files(id, name, webContentLink, hasThumbnail, thumbnailLink, iconLink, description, size, fileExtension, mimeType)"
     results = service_v3.files().list(**params).execute()
     pageToken = results.get('nextPageToken')
@@ -105,6 +107,8 @@ def listChildren(folder=ROOT_FOLDER, paginated=False, withThumbnail=False, pageS
       result.append(f)
     if not pageToken or (paginated and pageSize <= len(result)):
       break
+    elif pageSize > len(result):
+      pageSize = pageSize - len(result)
   logger.info("/list/%s in %.1fs, %d items, skipped %d (size limit: %.0f kb)" % (
     folder, time.time() - t0, len(result), len(sizeSkip), SIZE_LIMIT))
   return {'pageToken': pageToken, 'files': result}
