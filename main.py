@@ -162,6 +162,11 @@ def tunnel():
     logger.exception(err)
     abort(500, err)
 
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'public,max-age=86400'
+    return response
+
 if __name__ == '__main__':
   app.run()
 
