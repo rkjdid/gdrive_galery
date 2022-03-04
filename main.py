@@ -127,7 +127,9 @@ CORS(app)
 @app.route('/list/<string:folderId>')
 def route_list(folderId):
   try:
-    result = listChildren(folderId, **request.args)
+    args = dict(request.args)
+    args.pop('no-cache', '')
+    result = listChildren(folderId, **args)
     return jsonify(result)
   except HttpError as err:
     return abort(err.status_code, err.reason)
