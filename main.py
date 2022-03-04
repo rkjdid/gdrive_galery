@@ -80,7 +80,7 @@ def listChildren(folder=ROOT_FOLDER, paginated=False, withThumbnail=False, pageS
     params['q'] = "mimeType contains 'image/' and '%s' in parents" % folder
     if not params.get("orderBy"):
       params['orderBy'] = "name_natural"
-    params['fields'] = "nextPageToken, files(id, name, webContentLink, hasThumbnail, thumbnailLink, iconLink, description, size, fileExtension, mimeType)"
+    params['fields'] = "nextPageToken, files(id, name, webContentLink, hasThumbnail, thumbnailLink, iconLink, description, size, fileExtension, mimeType, description)"
     results = service_v3.files().list(**params).execute()
     pageToken = results.get('nextPageToken')
     items = results.get('files', [])
