@@ -129,6 +129,7 @@ def route_list(folderId):
   try:
     args = dict(request.args)
     args.pop('no-cache', '')
+    args.pop('nocache', '')
     result = listChildren(folderId, **args)
     return jsonify(result)
   except HttpError as err:
