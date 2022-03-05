@@ -167,8 +167,12 @@ def tunnel():
 
 @app.after_request
 def add_header(response):
-    response.headers['Cache-Control'] = 'public,max-age=259200'
-    return response
+  print(response)
+  ccontrol = 'public,max-age=259200'
+  if response.status_code < 200 or response.status_code > 299:
+    ccontrol = 'no-cache'
+  response.headers['Cache-Control'] = ccontrol
+  return response
 
 if __name__ == '__main__':
   app.run()
